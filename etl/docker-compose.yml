@@ -1,0 +1,33 @@
+version: '3'
+services:
+
+  db-movie:
+    container_name: db-movie
+    build: db
+    environment:
+      POSTGRES_DB: ${PG_DB_NAME}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+
+  app-movie:
+    container_name: app-movie
+    build:
+      context: app
+      args:
+        appuser: ${APP_USER}
+    depends_on:
+      - db-movie
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
