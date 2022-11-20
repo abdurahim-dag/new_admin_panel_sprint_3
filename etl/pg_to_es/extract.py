@@ -47,8 +47,7 @@ class PostgresExtractor:
                 )
                 curs.execute(sql)
 
-                while True:
-                    rows = curs.fetchmany(self.settings.batches)
+                while rows := curs.fetchmany(self.settings.batches):
                     if len(rows) == 0:
                         break
 

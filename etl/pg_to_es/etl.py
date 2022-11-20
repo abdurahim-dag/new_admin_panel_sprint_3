@@ -7,6 +7,8 @@ import state
 from config import Config
 from extract import PostgresExtractor
 from load import Load
+from logger import logger
+from models import Environments
 from storage.base import BaseStorage
 from storage.json import JsonFileStorage
 from transform import DataTransform
@@ -83,6 +85,7 @@ class EtlProcessing:
         load.load()
 
     def main(self):
+        logger.info('Started etl')
         self.extract()
         self.transform()
         self.load()
@@ -91,7 +94,7 @@ class EtlProcessing:
 
 if __name__ == '__main__':
     etl = EtlProcessing(
-        config=Config(),
+        config=Config(environments=Environments()),
         storage=JsonFileStorage('common/state.json'),
     )
     etl.main()

@@ -2,7 +2,12 @@ from pathlib import Path
 from uuid import UUID
 
 from pendulum import Date
-from pydantic import BaseModel, Field, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    validator,
+    BaseSettings,
+)
 
 
 class UUIDMixin(BaseModel):
@@ -68,3 +73,22 @@ class LoadSettings(BaseModel):
     index_name: str
     transform_path: Path
     schema_file_path: Path
+
+
+class Environments(BaseSettings):
+    pg_db_name: str
+    pg_user: str
+    pg_password: str
+    pg_host: str
+    pg_port: str
+    pg_schema: str
+    batches: str
+    extract_data_dir: str
+    sql_dir: str
+    sql_extract_file_name: str
+    transform_data_dir: str
+    es_host: str
+    es_port: str
+    es_index: str
+    es_settings_path: str
+    es_schema_file: str

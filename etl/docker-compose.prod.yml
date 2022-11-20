@@ -47,6 +47,9 @@ services:
         soft: -1
         hard: -1
 
+  pg_to_es:
+    env_file: .env.prod
+
 volumes:
   pg-data-movie:
   app-static:

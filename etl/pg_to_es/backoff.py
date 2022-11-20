@@ -37,6 +37,7 @@ def on_exception(
                 try:
                     target(*args, **kwargs)
                 except exception as err:
+                    logger.exception(err)
                     if max_retries <= step:
                         logger.info("Backoff retries the maximum number of steps has been reached")
                         raise err
