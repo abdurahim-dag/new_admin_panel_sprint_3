@@ -1,51 +1,50 @@
+import random
+import time
 from functools import wraps
-print('start')
 
 
-def wait_expo(cur_sleep, max_sleep, factor,  jitter):
-    """Generator for exponential decay.
+def sleep_expo_gen(initial, maximum, factor):
+    """Generator for exponential delay.
      Args:
-         base: The mathematical base of the exponentiation operation
+         initial: The mathematical base of the exponentiation operation.
          factor: Factor to multiply the exponentiation by.
-         max_value: The maximum value to yield. Once the value in the
-              true exponential sequence exceeds this, the value
-              of max_value will forever after be yielded.
+         maximum: The maximum value to yield.
      """
-    # Advance past initial .send() call
-    yield  # type: ignore[misc]
-    if jitter:
-        value + random.random()
     n = 0
+    delay = min(initial, maximum)
     while True:
-        a = factor * base ** n
-        if max_value is None or a < max_value:
-            yield a
-            n += 1
-        else:
-            yield max_value
+        yield delay
+        delay = min(factor * (2 ** n) + random.random(), maximum)
+        n += 1
+
+
 def on_exception(
         exception,
-        # base_sleep,
-        # max_tries,
-        # logger,
+        logger,
+        start_sleep_time,
+        factor=2,
+        border_sleep_time=10,
+        max_retries=10,
     ):
-    # Декорируем с помощью wraps,
-    # чтобы не потерять описание декорируемой функции.
     def retry_exception(target):
+        # Декорируем с помощью wraps,
+        # чтобы не потерять описание декорируемой функции.
         @wraps(target)
         def retry(*args, **kwargs):
+            step = 0
+            sleep_gen = sleep_expo_gen(start_sleep_time, border_sleep_time, factor)
             while True:
                 try:
-                    ret = target(*args, **kwargs)
-                except exception as e:
-                    print(e)
-
+                    target(*args, **kwargs)
+                except exception as err:
+                    if max_retries <= step:
+                        logger.info("Backoff retries the maximum number of steps has been reached")
+                        raise err
+                    step += 1
+                    sleep_time = next(sleep_gen)
+                    logger.info("Backoff retries %i step sleep %.2f sec", step, sleep_time)
+                    time.sleep(sleep_time)
+                else:
+                    break
         return retry
     return retry_exception
-
-@on_exception(Exception)
-def func():
-    while True:
-        print('do')
-        raise Exception('excep')
-func()

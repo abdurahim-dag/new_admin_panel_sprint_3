@@ -11,9 +11,6 @@
 4-load-sqlite:
 	docker exec -it app-movie bash -c "cd /app; python -m sqlite_to_postgres.load_data"
 
-5-pg-to-es:
-	docker exec -it etl-movie bash -c "cd /app; python -m etl"
-
 0-start-dev:
 	docker compose --env-file ./.env.dev up -d --no-deps --build
 

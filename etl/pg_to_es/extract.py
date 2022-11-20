@@ -1,43 +1,70 @@
-import psycopg2
-import os
-import logging
-from pathlib import Path
+import json
+from contextlib import closing
 from pathlib import PurePath
 
-from dotenv import load_dotenv
-from sqlalchemy.engine.url import URL
+import psycopg2
 
-def main():
-    load_dotenv()
-    conn_params = {
-        'drivername': 'postgresql+psycopg2',
-        'database': os.environ.get('PG_DB_NAME'),
-        'username': os.environ.get('PG_USER'),
-        'password': os.environ.get('PG_PASSWORD'),
-        'host': os.environ.get('PG_HOST'),
-        'port': os.environ.get('PG_PORT'),
-    }
-    schema = os.environ.get('PG_SCHEMA')
-    url = URL.create(**conn_params)
-    conn = psycopg2.connect(url)
-    curs = conn.cursor()
+from backoff import on_exception
+from logger import logger
+from models import ExtractSettings
+from state import State
 
-    data_dir = os.environ.get('DATA_DIR')
-    if not data_dir.exists():
-        os.mkdir(data_dir)
 
-    sql_dir = os.environ.get('SQL_DIR')
-    sql_path = Path(
-        PurePath(Path(sql_dir)),
+class PostgresExtractor:
+    """Extract batches rows to files."""
+    def __init__(
+            self,
+            settings: ExtractSettings,
+            state: State
+    ) -> None:
+        self.settings = settings
+        self.state = state
+
+
+    @on_exception(
+        exception=psycopg2.DatabaseError,
+        start_sleep_time=1,
+        factor=2,
+        border_sleep_time=15,
+        max_retries=15,
+        logger=logger,
     )
-    if not sql_path.exists():
-        raise FileExistsError(f"SQL DIR NOT EXISTS")
+    def extract(self):
+        """Extract rows to files."""
+        with closing(
+                psycopg2.connect(**self.settings.conn_params)
+        ) as conn:
+            with closing(conn.cursor()) as curs:
 
-    for sql_file in sql_path.glob('*/*.sql'):
-        sql = open(sql_file, encoding='utf-8').read()
-        curs.execute(sql)
+                state = self.state.get_state('extract')
 
+                sql = open(self.settings.sql_file, encoding='utf-8').read()
+                sql = sql.format(
+                    date_from=state.date_from,
+                    date_to=state.date_to,
+                    from_schema=self.settings.schemas,
+                    offset=state.step,
+                )
+                curs.execute(sql)
 
-if __name__ == "__main__":
+                while True:
+                    rows = curs.fetchmany(self.settings.batches)
+                    if len(rows) == 0:
+                        break
 
+                    file_name = f"{state.date_to}-{state.step}.json"
+                    file_path = PurePath(self.settings.extract_path, file_name)
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json.dump(rows, f)
 
+                    # Сохраняем каждый выполненный шаг.
+                    state.step += 1
+                    self.state.set_state('extract', state)
+                    logger.info("Extracted file %s", file_name)
+
+                # Сохраним step < 0.
+                # Установим дату началу, следующего запуска со вчера.
+                # И следующий запуск начнётся со вчерашней даты.
+                state.step = -1
+                state.date_from = state.date_to
+                self.state.set_state('extract', state)

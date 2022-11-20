@@ -1,7 +1,9 @@
-from base import BaseStorage
 import json
-from typing import Optional
 import pathlib
+from typing import Optional
+
+from .base import BaseStorage
+from .utils import DateEncoder
 
 
 class JsonFileStorage(BaseStorage):
@@ -9,13 +11,13 @@ class JsonFileStorage(BaseStorage):
         self.file_path = file_path
         self.path = pathlib.Path(self.file_path)
 
-    def save_state(self, state:dict):
-        with open(self.file_path, 'w') as f:
-            json.dump(state, f)
+    def save_state(self, state: dict):
+        with open(self.file_path, 'w', encoding='utf8') as f:
+            json.dump(state, f, cls=DateEncoder)
 
     def retrieve_state(self) -> dict:
-        result = {}
+        state = {}
         if self.path.exists() and self.path.is_file():
-            with open(self.path, 'r') as f:
-                result = json.load(f)
-        return result
+            with open(self.path, 'r', encoding='utf8') as f:
+                state = json.load(f)
+        return state
